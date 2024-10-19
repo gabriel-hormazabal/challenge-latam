@@ -1,9 +1,13 @@
 import unittest
 import pandas as pd
-
 from sklearn.metrics import classification_report
 from sklearn.model_selection import train_test_split
 from challenge.model import DelayModel
+
+import sys
+import os
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 class TestModel(unittest.TestCase):
 
@@ -17,23 +21,30 @@ class TestModel(unittest.TestCase):
         "MES_4",
         "MES_11",
         "OPERA_Sky Airline",
-        "OPERA_Copa Air"
+        "OPERA_Copa Air",
+        "period_day"  # Asegúrate de que esta columna está incluida si es relevante
     ]
 
     TARGET_COL = [
         "delay"
     ]
-
-
+    
     def setUp(self) -> None:
         super().setUp()
         self.model = DelayModel()
-        self.data = pd.read_csv(filepath_or_buffer="../data/data.csv")
         
-
-    def test_model_preprocess_for_training(
-        self
-    ):
+        # Leer el archivo CSV, especificando dtype y low_memory
+        self.data = pd.read_csv(
+            filepath_or_buffer="data/data.csv", 
+            low_memory=False,
+            dtype={
+                'OPERA_Latin American Wings': 'category',  # Cambia según tus columnas
+                'period_day': 'category',  # Asegúrate de definir los tipos correctamente
+                # Especifica los tipos de otras columnas según sea necesario
+            }
+        )
+        
+    def test_model_preprocess_for_training(self):
         features, target = self.model.preprocess(
             data=self.data,
             target_column="delay"
@@ -47,10 +58,7 @@ class TestModel(unittest.TestCase):
         assert target.shape[1] == len(self.TARGET_COL)
         assert set(target.columns) == set(self.TARGET_COL)
 
-
-    def test_model_preprocess_for_serving(
-        self
-    ):
+    def test_model_preprocess_for_serving(self):
         features = self.model.preprocess(
             data=self.data
         )
@@ -59,17 +67,18 @@ class TestModel(unittest.TestCase):
         assert features.shape[1] == len(self.FEATURES_COLS)
         assert set(features.columns) == set(self.FEATURES_COLS)
 
-
-    def test_model_fit(
-        self
-    ):
+    def test_model_fit(self):
         features, target = self.model.preprocess(
             data=self.data,
             target_column="delay"
         )
 
-        _, features_validation, _, target_validation = train_test_split(features, target, test_size = 0.33, random_state = 42)
+        _, features_validation, _, target_validation = train_test_split(features, target, test_size=0.33, random_state=42)
 
+        # Asegúrate de que las columnas sean del tipo correcto antes de entrenar
+        features['period_day'] = features['period_day'].astype('category')  # Cambia 'period_day' según tu DataFrame
+
+        # Modificación: habilitar el uso de variables categóricas en el modelo
         self.model.fit(
             features=features,
             target=target
@@ -80,16 +89,13 @@ class TestModel(unittest.TestCase):
         )
 
         report = classification_report(target_validation, predicted_target, output_dict=True)
-        
+
         assert report["0"]["recall"] < 0.60
         assert report["0"]["f1-score"] < 0.70
         assert report["1"]["recall"] > 0.60
         assert report["1"]["f1-score"] > 0.30
 
-
-    def test_model_predict(
-        self
-    ):
+    def test_model_predict(self):
         features = self.model.preprocess(
             data=self.data
         )
@@ -101,3 +107,8 @@ class TestModel(unittest.TestCase):
         assert isinstance(predicted_targets, list)
         assert len(predicted_targets) == features.shape[0]
         assert all(isinstance(predicted_target, int) for predicted_target in predicted_targets)
+
+if __name__ == '__main__':
+    print("Ejecutando pruebas...")
+    unittest.main()
+
