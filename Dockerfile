@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1.2
+#syntax=docker/dockerfile:1.2
 FROM python:latest
 
 # Establecer el directorio de trabajo
